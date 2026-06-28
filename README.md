@@ -9,31 +9,40 @@ A stateless, lightweight, state-of-the-art Document Q&A system powered by **Llam
 The project splits functionality into two isolated pipelines: **Ingestion** and **Retrieval / Inference**.
 
 ```mermaid
-graph TD
-    %% Ingestion Flow
-    subgraph Ingestion Pipeline
-        A[Upload PDF] --> B[Docling Converter]
-        B -->|Convert to Markdown| C[MarkdownHeaderTextSplitter]
-        C -->|Split by Headers| D[Safety RecursiveSplitter]
-        D -->|Generate Semantic Chunks| E[Shared Embeddings Model]
+graph LR
+    %% Ingestion Flow Customization
+    subgraph Ingestion_Pipeline ["📥 Ingestion Pipeline"]
+        A(Upload PDF) --> B[Docling Converter]
+        B -->|Markdown text| C[Markdown Header Splitter]
+        C -->|Header boundaries| D[Safety Recursive Splitter]
+        D -->|Semantic Chunks| E[Shared Embeddings Model]
         E -->|all-MiniLM-L6-v2| F[(FAISS Vector Store)]
     end
 
-    %% Query Flow
-    subgraph Query Pipeline
-        G[User Query] --> H[Shared Embeddings Model]
-        H -->|Generate Query Vector| I[FAISS Vector Store]
-        I -->|Semantic Similarity Search| J[Retrieve Top K Chunks]
-        J -->|Combine Chunks as Context| K[Prompt Builder]
-        L[Chat History] --> K
-        K -->|Inject Context & History| M[Llama 3 Model via Groq]
-        M -->|Streaming Response| N[Frontend Glassmorphic UI]
+    %% Query Flow Customization
+    subgraph Query_Pipeline ["⚡ Retrieval & Query Pipeline"]
+        G(User Query) --> H[Shared Embeddings Model]
+        H -->|Query Vector| I[(FAISS Vector Store)]
+        I -->|Similarity Search| J[Retrieve Top-K Chunks]
+        J -->|Context String| K[Prompt Builder]
+        L(Chat History) --> K
+        K -->|Context + History| M[Llama 3.3 via Groq]
+        M -->|Streaming Tokens| N(Glassmorphic UI)
     end
+
+    %% Premium Glassmorphism Styling Configurations
+    style Ingestion_Pipeline fill:#0f172a,stroke:#4f46e5,stroke-width:2px,color:#ffffff
+    style Query_Pipeline fill:#0f172a,stroke:#06b6d4,stroke-width:2px,color:#ffffff
     
-    style Ingestion fill:#1e1b4b,stroke:#4f46e5,stroke-width:2px,color:#ffffff
-    style Query fill:#083344,stroke:#06b6d4,stroke-width:2px,color:#ffffff
-    style F fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ffffff
-    style I fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ffffff
+    style A fill:#1e1b4b,stroke:#6366f1,color:#f3f4f6
+    style G fill:#083344,stroke:#22d3ee,color:#f3f4f6
+    style N fill:#064e3b,stroke:#10b981,color:#f3f4f6
+    
+    style F fill:#022c22,stroke:#10b981,stroke-width:2px,color:#ffffff
+    style I fill:#022c22,stroke:#10b981,stroke-width:2px,color:#ffffff
+    
+    classDef default fill:#1e293b,stroke:#334155,font-weight:500,color:#cbd5e1;
+    class B,C,D,E,H,J,K,M,L default;
 ```
 
 ---
