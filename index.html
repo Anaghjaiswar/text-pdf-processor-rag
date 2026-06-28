@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Q&A - RAG System</title>
+    
+    <!-- Typography & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --bg-card: rgba(31, 41, 55, 0.45);
+            --border-color: rgba(255, 255, 255, 0.08);
+            
+            --accent-primary: #4f46e5;
+            --accent-primary-glow: rgba(79, 70, 229, 0.4);
+            --accent-secondary: #06b6d4;
+            --accent-success: #10b981;
+            --accent-error: #ef4444;
+            
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-heading: #ffffff;
+            
+            --blur-radius: 16px;
+            --transition-speed: 0.3s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(79, 70, 229, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(6, 182, 212, 0.12) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 15, 25, 0.5);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-heading);
+            letter-spacing: -0.025em;
+        }
+
+        .logo i {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.4rem 0.8rem;
+            border-radius: 9999px;
+            border: 1px solid var(--border-color);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+        }
+
+        .status-dot.active {
+            background-color: var(--accent-success);
+            box-shadow: 0 0 8px var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.loading {
+            background-color: var(--accent-secondary);
+            box-shadow: 0 0 8px var(--accent-secondary);
+            animation: pulse 1s infinite;
+        }
+
+        main {
+            flex: 1;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+            height: calc(100vh - 80px);
+        }
+
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .glass-card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(var(--blur-radius));
+            -webkit-backdrop-filter: blur(var(--blur-radius));
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: border-color var(--transition-speed);
+        }
+
+        .glass-card:focus-within {
+            border-color: rgba(79, 70, 229, 0.4);
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-heading);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        input[type="password"],
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 0.9rem;
+            outline: none;
+            transition: all var(--transition-speed);
+        }
+
+        input[type="password"]:focus,
+        input[type="text"]:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 10px rgba(79, 70, 229, 0.2);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .drag-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 2rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            background: rgba(255, 255, 255, 0.01);
+            position: relative;
+        }
+
+        .drag-area:hover, .drag-area.dragover {
+            border-color: var(--accent-secondary);
+            background: rgba(6, 182, 212, 0.04);
+        }
+
+        .drag-area i {
+            font-size: 2.5rem;
+            color: var(--accent-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .drag-area p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .drag-area span {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-speed);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), #6366f1);
+            color: #ffffff;
+            box-shadow: 0 4px 14px var(--accent-primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
+        }
+
+        .btn-primary:disabled {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            max-width: 80%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        .message-user {
+            align-self: flex-end;
+        }
+
+        .message-bot {
+            align-self: flex-start;
+        }
+
+        .message-bubble {
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .message-user .message-bubble {
+            background: linear-gradient(135deg, var(--accent-primary), #5a52e6);
+            color: #ffffff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-bot .message-bubble {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-sender {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .message-user .message-sender {
+            align-self: flex-end;
+        }
+
+        .chat-input-area {
+            padding: 1.25rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            background: rgba(11, 15, 25, 0.3);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .chat-input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            padding: 0.85rem 1.25rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all var(--transition-speed);
+        }
+
+        .chat-input:focus {
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.15);
+            background: rgba(0, 0, 0, 0.45);
+        }
+
+        .chat-send-btn {
+            background: var(--accent-secondary);
+            color: #0b0f19;
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all var(--transition-speed);
+            font-size: 1.1rem;
+        }
+
+        .chat-send-btn:hover {
+            transform: scale(1.05);
+            background: #22d3ee;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .chat-send-btn:disabled {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Markdown Styles for Answers */
+        .message-bubble p {
+            margin-bottom: 0.75rem;
+        }
+        .message-bubble p:last-child {
+            margin-bottom: 0;
+        }
+        .message-bubble code {
+            font-family: 'Fira Code', monospace;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #f43f5e;
+        }
+        .message-bubble pre {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border-color);
+        }
+        .message-bubble pre code {
+            background: transparent;
+            padding: 0;
+            color: #e2e8f0;
+            font-size: 0.85rem;
+        }
+
+        /* File Upload Feedback Badge */
+        .file-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .file-badge i {
+            color: var(--accent-secondary);
+        }
+
+        .file-badge .remove-file {
+            cursor: pointer;
+            color: var(--accent-error);
+            padding: 0.25rem;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Streaming Indicator Cursor */
+        .typing-cursor::after {
+            content: ' ▍';
+            animation: blink 1s step-start infinite;
+            color: var(--accent-secondary);
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        /* Welcome Message Screen */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: var(--text-muted);
+            padding: 2rem;
+            margin: auto;
+        }
+
+        .welcome-screen i {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 0.8;
+        }
+
+        .welcome-screen h3 {
+            color: var(--text-heading);
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-cube"></i>
+            <span>RAG Engine</span>
+        </div>
+        <div class="system-status">
+            <div id="statusDot" class="status-dot active"></div>
+            <span id="statusText">System Ready</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="sidebar">
+            <!-- API Configuration Card -->
+            <div class="glass-card">
+                <h2><i class="fa-solid fa-key"></i> Credentials</h2>
+                <div class="input-group">
+                    <label for="apiKey">Groq API Key</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="apiKey" placeholder="Enter gsk_..." />
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF Ingestion Card -->
+            <div class="glass-card" style="flex: 1; display: flex; flex-direction: column;">
+                <h2><i class="fa-solid fa-file-pdf"></i> Document Ingest</h2>
+                <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                    <div class="drag-area" id="dragArea">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <p>Drag & Drop PDF here</p>
+                        <span>or click to browse local files</span>
+                        <input type="file" id="fileInput" class="file-input" accept=".pdf" />
+                    </div>
+                    
+                    <div id="fileBadgeContainer"></div>
+
+                    <button class="btn btn-primary" id="ingestBtn" style="margin-top: 1.5rem;" disabled>
+                        <i class="fa-solid fa-play"></i> Ingest Document
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Workspace -->
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-screen" id="welcomeScreen">
+                    <i class="fa-solid fa-comments"></i>
+                    <h3>Start Document Discussion</h3>
+                    <p>Provide your Groq API key, ingest a PDF file, and ask questions about its content.</p>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="chat-input-wrapper">
+                    <input type="text" class="chat-input" id="chatInput" placeholder="Ask a question about the ingested document..." disabled />
+                </div>
+                <button class="chat-send-btn" id="sendBtn" disabled>
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = "http://localhost:8000";
+
+        // Element Selectors
+        const apiKeyInput = document.getElementById("apiKey");
+        const dragArea = document.getElementById("dragArea");
+        const fileInput = document.getElementById("fileInput");
+        const fileBadgeContainer = document.getElementById("fileBadgeContainer");
+        const ingestBtn = document.getElementById("ingestBtn");
+        const chatInput = document.getElementById("chatInput");
+        const sendBtn = document.getElementById("sendBtn");
+        const chatMessages = document.getElementById("chatMessages");
+        const welcomeScreen = document.getElementById("welcomeScreen");
+        const statusDot = document.getElementById("statusDot");
+        const statusText = document.getElementById("statusText");
+
+        let selectedFile = null;
+
+        // Load cached API key on startup
+        if (localStorage.getItem("groq_api_key")) {
+            apiKeyInput.value = localStorage.getItem("groq_api_key");
+        }
+
+        // Save key on change
+        apiKeyInput.addEventListener("input", (e) => {
+            const val = e.target.value.trim();
+            localStorage.setItem("groq_api_key", val);
+            updateChatInputsState();
+        });
+
+        // Toggle interactive states
+        function updateChatInputsState() {
+            const hasKey = apiKeyInput.value.trim().length > 0;
+            chatInput.disabled = !hasKey;
+            sendBtn.disabled = !hasKey;
+            
+            if (hasKey) {
+                chatInput.placeholder = "Ask a question about the ingested document...";
+            } else {
+                chatInput.placeholder = "Provide your Groq API key in the sidebar to ask questions...";
+            }
+        }
+        updateChatInputsState();
+
+        // Drag & Drop event bindings
+        dragArea.addEventListener("click", () => fileInput.click());
+
+        dragArea.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dragArea.classList.add("dragover");
+        });
+
+        dragArea.addEventListener("dragleave", () => {
+            dragArea.classList.remove("dragover");
+        });
+
+        dragArea.addEventListener("drop", (e) => {
+            e.preventDefault();
+            dragArea.classList.remove("dragover");
+            if (e.dataTransfer.files.length > 0) {
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener("change", (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
+                showSystemMessage("Error: Only PDF files can be uploaded.", "error");
+                return;
+            }
+            selectedFile = file;
+            ingestBtn.disabled = false;
+            
+            fileBadgeContainer.innerHTML = `
+                <div class="file-badge">
+                    <span><i class="fa-solid fa-file-invoice"></i> ${file.name}</span>
+                    <i class="fa-solid fa-xmark remove-file" id="removeFile"></i>
+                </div>
+            `;
+
+            document.getElementById("removeFile").addEventListener("click", () => {
+                selectedFile = null;
+                ingestBtn.disabled = true;
+                fileBadgeContainer.innerHTML = "";
+                fileInput.value = "";
+            });
+        }
+
+        // Ingest Document Request
+        ingestBtn.addEventListener("click", async () => {
+            if (!selectedFile) return;
+
+            setSystemStatus("Ingesting Document...", "loading");
+            ingestBtn.disabled = true;
+            apiKeyInput.disabled = true;
+            
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+
+            try {
+                const response = await fetch(`${API_BASE}/ingest`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSystemMessage(`Ingestion successful: ${selectedFile.name}`, "success");
+                    setSystemStatus("System Ready", "active");
+                } else {
+                    throw new Error(data.detail || "Ingestion failed.");
+                }
+            } catch (err) {
+                showSystemMessage(`Ingestion failed: ${err.message}`, "error");
+                setSystemStatus("System Ready", "active");
+            } finally {
+                ingestBtn.disabled = false;
+                apiKeyInput.disabled = false;
+            }
+        });
+
+        // Send Message / Query
+        async function sendMessage() {
+            const question = chatInput.value.trim();
+            const apiKey = apiKeyInput.value.trim();
+
+            if (!question) return;
+            if (!apiKey) {
+                showSystemMessage("Please enter your Groq API Key first.", "error");
+                return;
+            }
+
+            // Remove welcome screen on first chat interaction
+            if (welcomeScreen) {
+                welcomeScreen.remove();
+            }
+
+            // Add user message to UI
+            appendMessage("user", question);
+            chatInput.value = "";
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            setSystemStatus("Generating answer...", "loading");
+
+            // Add empty bot bubble for streaming
+            const botMessageDiv = appendMessage("bot", "");
+            const bubble = botMessageDiv.querySelector(".message-bubble");
+            bubble.classList.add("typing-cursor");
+
+            let accumulatedText = "";
+
+            try {
+                const response = await fetch(`${API_BASE}/query`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Groq-API-Key": apiKey
+                    },
+                    body: JSON.stringify({
+                        question: question,
+                        stream: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || "Retrieval error.");
+                }
+
+                // Read streamed chunks
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    accumulatedText += chunk;
+                    
+                    // Format live Markdown representation
+                    bubble.innerHTML = marked.parse(accumulatedText);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+
+            } catch (err) {
+                bubble.innerHTML = `<span style="color: var(--accent-error);"><i class="fa-solid fa-circle-exclamation"></i> Error: ${err.message}</span>`;
+            } finally {
+                bubble.classList.remove("typing-cursor");
+                setSystemStatus("System Ready", "active");
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatInput.focus();
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        sendBtn.addEventListener("click", sendMessage);
+        chatInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !chatInput.disabled) {
+                sendMessage();
+            }
+        });
+
+        // Helper UI Builders
+        function appendMessage(sender, text) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = `message message-${sender}`;
+            
+            const senderLabel = document.createElement("span");
+            senderLabel.className = "message-sender";
+            senderLabel.innerText = sender === "user" ? "You" : "Assistant";
+            
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+            bubble.innerHTML = text ? marked.parse(text) : "";
+
+            msgDiv.appendChild(senderLabel);
+            msgDiv.appendChild(bubble);
+            
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return msgDiv;
+        }
+
+        function showSystemMessage(text, type = "success") {
+            const icon = type === "success" 
+                ? '<i class="fa-solid fa-circle-check" style="color: var(--accent-success);"></i>'
+                : '<i class="fa-solid fa-circle-exclamation" style="color: var(--accent-error);"></i>';
+                
+            const msgDiv = document.createElement("div");
+            msgDiv.className = "message message-bot";
+            msgDiv.innerHTML = `
+                <span class="message-sender">System Notice</span>
+                <div class="message-bubble" style="background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.05);">
+                    ${icon} &nbsp; ${text}
+                </div>
+            `;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function setSystemStatus(text, type) {
+            statusText.innerText = text;
+            statusDot.className = "status-dot";
+            if (type === "active") statusDot.classList.add("active");
+            if (type === "loading") statusDot.classList.add("loading");
+        }
+    </script>
+</body>
+</html>
