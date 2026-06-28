@@ -47,19 +47,23 @@ graph LR
 
 ---
 
-## 📦 Project Structure & Modularity
+## 📦 Folder Structure
 
-The project is structured as a clean, modular Python package:
+The repository structure shows both the root files and the core project package contents:
 
 ```text
-rag-document-q&a-project/
-├── __init__.py               # Package initializer exposing core engines
-├── doc_processing_engine.py   # Document ingestion, splitting, and vectorizing
-├── llm_engine.py             # Context retrieval and LLM reasoning chain
-├── rag_pipeline.py           # Orchestrator coordinating ingestion and QA
-├── main.py                   # FastAPI server exposing the endpoints
-├── index.html                # Custom CSS glassmorphic streaming UI
-└── README.md                 # Project guide and documentation
+gen-ai/                         # Root repository folder
+├── rag-document-q&a-project/     # Core RAG project directory
+│   ├── __init__.py               # Package initializer exposing core engines
+│   ├── doc_processing_engine.py   # Document ingestion, splitting, and vectorizing
+│   ├── llm_engine.py             # Context retrieval and LLM reasoning chain
+│   ├── rag_pipeline.py           # Orchestrator coordinating ingestion and QA
+│   ├── main.py                   # FastAPI server exposing the endpoints
+│   ├── index.html                # Custom CSS glassmorphic streaming UI
+│   └── README.md                 # Project guide and documentation
+├── requirements.txt            # Shared Python dependencies list
+├── .gitignore                  # Git ignore rules
+├── cnn -deeplearning-part-2.pdf    # Test PDF file
 ```
 
 ### Module Descriptions:
@@ -122,27 +126,56 @@ sequenceDiagram
 
 ## 🚀 Getting Started
 
-### Prerequisites
+Follow these steps to clone the repository, set up your environment, install dependencies, and boot the server.
 
-Make sure Python 3.10+ is installed. In your virtual environment, install the dependencies:
+### 1. Clone the Repository & Navigate
+
+Clone the repository and enter the root directory:
 
 ```bash
-pip install fastapi uvicorn pydantic docling langchain langchain-community langchain-huggingface langchain-groq sentence-transformers python-multipart
+git clone https://github.com/Anaghjaiswar/text-pdf-processor-rag.git
+cd gen-ai
 ```
 
-### Running the Project
+### 2. Set Up Virtual Environment
 
-1.  **Start the FastAPI server:**
-    Run the server from the project directory:
+Create and activate a virtual environment to manage dependencies locally:
+
+*   **Windows (PowerShell):**
+    ```powershell
+    python -m venv venv
+    .\venv\Scripts\activate
+    ```
+*   **macOS / Linux:**
     ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+### 3. Install Dependencies
+
+Install the required packages from the `requirements.txt` file:
+
+```bash
+pip install -r requirements.txt
+```
+
+*(Note: We use the lightweight `sentence-transformers` library to run embedding calculations on CPU, making it fully zero-setup without requiring Ollama running locally).*
+
+### 4. Run the Project
+
+1.  **Start the FastAPI backend server:**
+    Navigate into the project directory and run `main.py`:
+    ```bash
+    cd rag-document-q&a-project
     python main.py
     ```
-    The server will start on `http://localhost:8000`.
+    The server will boot and listen on `http://localhost:8000`.
 
-2.  **Launch the Frontend:**
-    Double-click the `index.html` file to open it directly in your web browser.
+2.  **Open the Frontend Client:**
+    Double-click the `index.html` file inside the `rag-document-q&a-project/` folder to open the chat interface directly in your browser.
 
-3.  **Chat with your document:**
-    *   Paste your Groq API Key (`gsk_...`) in the sidebar.
-    *   Upload a PDF file and click **Ingest Document**.
-    *   Type a question and watch the RAG pipeline stream answers in real-time.
+3.  **Discuss Your Document:**
+    *   Enter your Groq API Key (`gsk_...`) in the sidebar.
+    *   Select/drag-and-drop a PDF file and click **Ingest Document**.
+    *   Start asking questions about the document in the chat interface!
