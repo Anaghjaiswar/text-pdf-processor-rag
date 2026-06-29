@@ -115,6 +115,17 @@
             animation: pulse 1s infinite;
         }
 
+        .status-dot.waiting {
+            background-color: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+            animation: pulse 2.5s infinite;
+        }
+
+        .status-dot.error {
+            background-color: var(--accent-error);
+            box-shadow: 0 0 8px var(--accent-error);
+        }
+
         main {
             flex: 1;
             max-width: 1400px;
@@ -543,8 +554,8 @@
             <span>RAG Engine</span>
         </div>
         <div class="system-status">
-            <div id="statusDot" class="status-dot active"></div>
-            <span id="statusText">System Ready</span>
+            <div id="statusDot" class="status-dot waiting"></div>
+            <span id="statusText">Waiting for Ingestion</span>
         </div>
     </header>
 
@@ -620,6 +631,7 @@
         const statusText = document.getElementById("statusText");
 
         let selectedFile = null;
+        let isDocumentIngested = false;
 
         // Load cached API key on startup
         if (localStorage.getItem("groq_api_key")) {
@@ -636,16 +648,42 @@
         // Toggle interactive states
         function updateChatInputsState() {
             const hasKey = apiKeyInput.value.trim().length > 0;
-            chatInput.disabled = !hasKey;
-            sendBtn.disabled = !hasKey;
+            const canChat = hasKey && isDocumentIngested;
             
-            if (hasKey) {
-                chatInput.placeholder = "Ask a question about the ingested document...";
-            } else {
+            chatInput.disabled = !canChat;
+            sendBtn.disabled = !canChat;
+            
+            if (!hasKey) {
                 chatInput.placeholder = "Provide your Groq API key in the sidebar to ask questions...";
+            } else if (!isDocumentIngested) {
+                chatInput.placeholder = "Please ingest a PDF document first before asking questions...";
+            } else {
+                chatInput.placeholder = "Ask a question about the ingested document...";
             }
         }
-        updateChatInputsState();
+        
+        // Initialize status and check backend database availability on load
+        async function checkSystemStatus() {
+            setSystemStatus("Checking status...", "loading");
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+                if (response.ok && data.db_exists) {
+                    isDocumentIngested = true;
+                    setSystemStatus("System Ready", "active");
+                } else {
+                    isDocumentIngested = false;
+                    setSystemStatus("Waiting for Ingestion", "waiting");
+                }
+            } catch (err) {
+                console.error("Failed to connect to backend:", err);
+                isDocumentIngested = false;
+                setSystemStatus("Backend Offline", "error");
+            } finally {
+                updateChatInputsState();
+            }
+        }
+        checkSystemStatus();
 
         // Drag & Drop event bindings
         dragArea.addEventListener("click", () => fileInput.click());
@@ -701,6 +739,9 @@
             if (!selectedFile) return;
 
             setSystemStatus("Ingesting Document...", "loading");
+            isDocumentIngested = false;
+            updateChatInputsState();
+
             ingestBtn.disabled = true;
             apiKeyInput.disabled = true;
             
@@ -717,16 +758,19 @@
 
                 if (response.ok) {
                     showSystemMessage(`Ingestion successful: ${selectedFile.name}`, "success");
+                    isDocumentIngested = true;
                     setSystemStatus("System Ready", "active");
                 } else {
                     throw new Error(data.detail || "Ingestion failed.");
                 }
             } catch (err) {
                 showSystemMessage(`Ingestion failed: ${err.message}`, "error");
-                setSystemStatus("System Ready", "active");
+                isDocumentIngested = false;
+                setSystemStatus("Ingestion Failed / No Document", "error");
             } finally {
                 ingestBtn.disabled = false;
                 apiKeyInput.disabled = false;
+                updateChatInputsState();
             }
         });
 
@@ -856,6 +900,8 @@
             statusDot.className = "status-dot";
             if (type === "active") statusDot.classList.add("active");
             if (type === "loading") statusDot.classList.add("loading");
+            if (type === "waiting") statusDot.classList.add("waiting");
+            if (type === "error") statusDot.classList.add("error");
         }
     </script>
 </body>

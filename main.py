@@ -26,6 +26,17 @@ shared_embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 doc_processor = DocProcessingEngine(embeddings=shared_embeddings)
 
 
+@app.get("/status")
+async def get_status():
+    """Checks if the FAISS vector database is already built and contains index files."""
+    faiss_index_path = os.path.join("./faiss_db", "index.faiss")
+    db_exists = os.path.exists(faiss_index_path)
+    return {
+        "db_exists": db_exists,
+        "message": "Database is ready" if db_exists else "No database found"
+    }
+
+
 class QueryRequest(BaseModel):
     question: str
     stream: bool = True
